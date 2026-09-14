@@ -3,7 +3,6 @@
 from app.domain.work import create_work_item, complete_task, subtree
 """
 
-from app.domain.work.codes import generate_code
 from app.domain.work.events import record_event
 from app.domain.work.lifecycle import (
     CONTAINER_TRANSITIONS,
@@ -34,7 +33,6 @@ __all__ = [
     "cancel_work_item",
     "complete_task",
     "create_work_item",
-    "generate_code",
     "record_event",
     "start_task",
     "subtree",

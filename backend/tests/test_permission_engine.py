@@ -8,13 +8,14 @@ import uuid
 
 import pytest
 
-from app.domain.enums import MembershipStatus, RoleType
+from app.domain.enums import DelegationPlanStatus, MembershipStatus, RoleType
 from app.domain.permissions import (
     Action,
     Actor,
     DelegationSubject,
     MemberSubject,
     PermissionDenied,
+    PlanSubject,
     WorkSubject,
     can,
     require,
@@ -81,7 +82,31 @@ def delegation_in(
     )
 
 
+def plan_in(
+    organization_id: uuid.UUID = ORG,
+    *,
+    creator: uuid.UUID | None = None,
+    approver: uuid.UUID | None = None,
+    status: DelegationPlanStatus = DelegationPlanStatus.PENDING_APPROVAL,
+) -> PlanSubject:
+    return PlanSubject(
+        organization_id=organization_id,
+        plan_id=uuid.uuid4(),
+        created_by_membership_id=creator or uuid.uuid4(),
+        required_approver_membership_id=approver,
+        status=status,
+    )
+
+
+PLAN_ACTIONS = {
+    Action.EDIT_PLAN,
+    Action.SUBMIT_PLAN,
+    Action.APPROVE_PLAN,
+    Action.REJECT_PLAN,
+}
+
 WORK_ACTIONS = {
+    Action.CREATE_PLAN,
     Action.VIEW_WORK_ITEM,
     Action.EDIT_WORK_ITEM,
     Action.CANCEL_WORK_ITEM,
@@ -96,6 +121,8 @@ def subject_for_action(action: Action, organization_id: uuid.UUID = ORG):
 
     Pairing the wrong one raises, which is the engine working as intended.
     """
+    if action in PLAN_ACTIONS:
+        return plan_in(organization_id)
     if action in WORK_ACTIONS:
         return work_in(organization_id)
     if action is Action.DELEGATE_RESPONSIBILITY:
@@ -351,3 +378,82 @@ class TestDelegation:
             Action.DELEGATE_RESPONSIBILITY,
             delegation_in(owner=actor.membership_id, to=actor.membership_id),
         )
+
+
+class TestPlans:
+    def test_a_draft_belongs_to_whoever_is_writing_it(self):
+        actor = make_actor(role=RoleType.VP)
+        draft = plan_in(creator=actor.membership_id, status=DelegationPlanStatus.DRAFT)
+
+        assert can(actor, Action.EDIT_PLAN, draft)
+        assert can(actor, Action.SUBMIT_PLAN, draft)
+
+    def test_nobody_else_may_touch_someone_s_draft(self):
+        actor = make_actor(is_superadmin=False, below=(uuid.uuid4(),))
+        draft = plan_in(status=DelegationPlanStatus.DRAFT)
+
+        assert not can(actor, Action.EDIT_PLAN, draft)
+        assert not can(actor, Action.SUBMIT_PLAN, draft)
+
+    def test_a_draft_cannot_be_approved(self):
+        actor = make_actor()
+        draft = plan_in(
+            creator=uuid.uuid4(), approver=actor.membership_id, status=DelegationPlanStatus.DRAFT
+        )
+
+        decision = can(actor, Action.APPROVE_PLAN, draft)
+
+        assert not decision
+        assert "hasn't been sent" in decision.reason
+
+    def test_only_the_named_approver_may_decide(self):
+        approver = make_actor()
+        pending = plan_in(approver=approver.membership_id)
+
+        assert can(approver, Action.APPROVE_PLAN, pending)
+        assert can(approver, Action.REJECT_PLAN, pending)
+
+        bystander = make_actor(below=(uuid.uuid4(),))
+        decision = can(bystander, Action.APPROVE_PLAN, pending)
+        assert not decision
+        assert "someone else" in decision.reason
+
+    def test_the_creator_cannot_approve_their_own_submitted_plan(self):
+        """Unless they are also the named approver, which happens at the top."""
+        creator = make_actor(role=RoleType.VP)
+        pending = plan_in(creator=creator.membership_id, approver=uuid.uuid4())
+
+        assert not can(creator, Action.APPROVE_PLAN, pending)
+
+    def test_a_pending_plan_moves_to_the_approver(self):
+        """The approver may adjust what is in front of them and then approve it."""
+        creator = make_actor(role=RoleType.VP)
+        approver = make_actor()
+        pending = plan_in(creator=creator.membership_id, approver=approver.membership_id)
+
+        assert can(approver, Action.EDIT_PLAN, pending)
+
+        decision = can(creator, Action.EDIT_PLAN, pending)
+        assert not decision
+        assert "with its approver" in decision.reason
+
+    @pytest.mark.parametrize(
+        "status", [DelegationPlanStatus.APPROVED, DelegationPlanStatus.REJECTED]
+    )
+    def test_a_decided_plan_is_closed_to_everyone(self, status):
+        actor = make_actor()
+        decided = plan_in(creator=actor.membership_id, approver=actor.membership_id, status=status)
+
+        assert not can(actor, Action.EDIT_PLAN, decided)
+        assert not can(actor, Action.APPROVE_PLAN, decided)
+        assert not can(actor, Action.SUBMIT_PLAN, decided)
+
+    def test_planning_requires_responsibility_for_the_work(self):
+        report = uuid.uuid4()
+        actor = make_actor(below=(report,))
+
+        assert can(actor, Action.CREATE_PLAN, work_in(owner=report))
+
+        decision = can(actor, Action.CREATE_PLAN, work_in(owner=uuid.uuid4()))
+        assert not decision
+        assert "plan work you are responsible for" in decision.reason

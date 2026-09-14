@@ -11,6 +11,7 @@ from app.domain.permissions.context import (
     load_actor,
     subject_for,
     subject_for_delegation,
+    subject_for_plan,
     subject_for_work_item,
 )
 from app.domain.permissions.engine import (
@@ -23,6 +24,7 @@ from app.domain.permissions.engine import (
 from app.domain.permissions.subjects import (
     DelegationSubject,
     MemberSubject,
+    PlanSubject,
     Subject,
     WorkSubject,
 )
@@ -34,6 +36,7 @@ __all__ = [
     "DelegationSubject",
     "MemberSubject",
     "PermissionDenied",
+    "PlanSubject",
     "Subject",
     "WorkSubject",
     "can",
@@ -41,5 +44,6 @@ __all__ = [
     "require",
     "subject_for",
     "subject_for_delegation",
+    "subject_for_plan",
     "subject_for_work_item",
 ]

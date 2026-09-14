@@ -17,11 +17,12 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 
-from app.domain.enums import MembershipStatus, RoleType
+from app.domain.enums import DelegationPlanStatus, MembershipStatus, RoleType
 from app.domain.permissions.actions import Action
 from app.domain.permissions.subjects import (
     DelegationSubject,
     MemberSubject,
+    PlanSubject,
     Subject,
     WorkSubject,
 )
@@ -162,7 +163,74 @@ def _delegate_responsibility(actor: Actor, subject: Subject | None) -> Decision:
     return _allow("The work and the person are both within your part of the organization.")
 
 
+def _create_plan(actor: Actor, subject: Subject | None) -> Decision:
+    """The subject is the responsibility being planned."""
+    scope = _expect(subject, WorkSubject)
+    if actor.covers(scope.responsible_membership_id):
+        return _allow("You are responsible for this work.")
+    return _deny("You can only plan work you are responsible for.")
+
+
+def _edit_plan(actor: Actor, subject: Subject | None) -> Decision:
+    plan = _expect(subject, PlanSubject)
+
+    if plan.status is DelegationPlanStatus.DRAFT:
+        if plan.created_by_membership_id == actor.membership_id:
+            return _allow("It is your draft.")
+        return _deny("Only the person writing a plan can change it while it is a draft.")
+
+    if plan.status is DelegationPlanStatus.PENDING_APPROVAL:
+        # The approver may adjust a plan in front of them -- change a due date,
+        # move a task -- and then approve it. No approval exists yet, so there
+        # is nothing to invalidate; the version bump is what keeps the eventual
+        # approval attached to what was actually read.
+        if plan.required_approver_membership_id == actor.membership_id:
+            return _allow("You are the one being asked to approve it.")
+        return _deny("This plan is with its approver, so only they can change it now.")
+
+    return _deny("This plan has already been decided and can't be changed.")
+
+
+def _submit_plan(actor: Actor, subject: Subject | None) -> Decision:
+    plan = _expect(subject, PlanSubject)
+
+    if plan.status is not DelegationPlanStatus.DRAFT:
+        return _deny("This plan has already been sent.")
+    if plan.created_by_membership_id != actor.membership_id:
+        return _deny("Only the person who wrote a plan can send it for approval.")
+
+    return _allow("It is your draft to send.")
+
+
+def _decide_plan(verb: str) -> Rule:
+    """Approving and rejecting share one shape.
+
+    The message stays generic on purpose. Naming the approver is presentation,
+    and the messaging layer adds it when rendering -- the policy has no business
+    holding display names.
+    """
+
+    def rule(actor: Actor, subject: Subject | None) -> Decision:
+        plan = _expect(subject, PlanSubject)
+
+        if plan.status is DelegationPlanStatus.DRAFT:
+            return _deny("This plan hasn't been sent for approval yet.")
+        if plan.status is not DelegationPlanStatus.PENDING_APPROVAL:
+            return _deny("This plan has already been decided.")
+        if plan.required_approver_membership_id != actor.membership_id:
+            return _deny(f"This plan was sent to someone else to {verb}.")
+
+        return _allow("It was sent to you.")
+
+    return rule
+
+
 _RULES: dict[Action, Rule] = {
+    Action.CREATE_PLAN: _create_plan,
+    Action.EDIT_PLAN: _edit_plan,
+    Action.SUBMIT_PLAN: _submit_plan,
+    Action.APPROVE_PLAN: _decide_plan("approve"),
+    Action.REJECT_PLAN: _decide_plan("reject"),
     Action.VIEW_MEMBER_WORK: _view_member_work,
     Action.VIEW_WORK_ITEM: _view_work_item,
     Action.EDIT_WORK_ITEM: _change_work_item,

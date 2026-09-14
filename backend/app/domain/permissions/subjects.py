@@ -11,6 +11,8 @@ tree and delegation plans.
 import uuid
 from dataclasses import dataclass
 
+from app.domain.enums import DelegationPlanStatus
+
 
 @dataclass(frozen=True, slots=True)
 class MemberSubject:
@@ -58,6 +60,22 @@ class DelegationSubject:
         return self.owner_membership_id or self.created_by_membership_id
 
 
+@dataclass(frozen=True, slots=True)
+class PlanSubject:
+    """A delegation plan.
+
+    ``status`` travels with it because who may touch a plan depends on where it
+    is: the creator owns a draft, the approver owns it once it has been sent to
+    them, and nobody owns it once it has been decided.
+    """
+
+    organization_id: uuid.UUID
+    plan_id: uuid.UUID
+    created_by_membership_id: uuid.UUID
+    required_approver_membership_id: uuid.UUID | None
+    status: DelegationPlanStatus
+
+
 #: Grows as resources land. Every subject must carry organization_id so the
 #: engine can refuse cross-organization access before consulting any rule.
-Subject = MemberSubject | WorkSubject | DelegationSubject
+Subject = MemberSubject | WorkSubject | DelegationSubject | PlanSubject

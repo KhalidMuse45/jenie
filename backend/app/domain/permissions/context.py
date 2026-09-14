@@ -9,10 +9,15 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Membership, WorkItem
+from app.database.models import DelegationPlan, Membership, WorkItem
 from app.domain.organizations.graph import OrgGraph
 from app.domain.permissions.engine import Actor
-from app.domain.permissions.subjects import DelegationSubject, MemberSubject, WorkSubject
+from app.domain.permissions.subjects import (
+    DelegationSubject,
+    MemberSubject,
+    PlanSubject,
+    WorkSubject,
+)
 
 
 async def load_actor(session: AsyncSession, membership_id: uuid.UUID) -> Actor | None:
@@ -62,4 +67,14 @@ def subject_for_delegation(
         owner_membership_id=work_item.owner_membership_id,
         created_by_membership_id=work_item.created_by_membership_id,
         proposed_owner_membership_id=proposed_owner_membership_id,
+    )
+
+
+def subject_for_plan(plan: DelegationPlan) -> PlanSubject:
+    return PlanSubject(
+        organization_id=plan.organization_id,
+        plan_id=plan.id,
+        created_by_membership_id=plan.created_by_membership_id,
+        required_approver_membership_id=plan.required_approver_membership_id,
+        status=plan.status,
     )
