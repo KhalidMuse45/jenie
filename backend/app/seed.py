@@ -10,12 +10,14 @@ This is development data. Production members arrive through the enrollment flow.
 
 import asyncio
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Membership, Organization, User
+from app.database.models import Membership, MessagingIdentity, Organization, User
 from app.database.session import get_engine, get_sessionmaker
-from app.domain.enums import MembershipStatus, RoleType
+from app.domain.enums import MembershipStatus, MessagingChannel, RoleType
+from app.domain.identity import register_identity
 
 # Arbitrary but fixed. Changing it produces an entirely new set of seed rows.
 NAMESPACE = uuid.UUID("1f6d9d3c-6a4e-5a2b-9c3d-2f8b7a1e4c50")
@@ -24,12 +26,28 @@ ORG_SLUG = "colorstack-umn"
 ORG_NAME = "ColorStack UMN"
 ORG_TIMEZONE = "America/Chicago"
 
-# (key, display name, title, role, manager key, superadmin)
-PEOPLE: list[tuple[str, str, str, RoleType, str | None, bool]] = [
-    ("khalid", "Khalid", "President", RoleType.PRESIDENT, None, True),
-    ("sarah", "Sarah", "VP External", RoleType.VP, "khalid", False),
-    ("izra", "Izra", "Marketing Member", RoleType.MEMBER, "sarah", False),
-    ("marwa", "Marwa", "Marketing Member", RoleType.MEMBER, "sarah", False),
+
+@dataclass(frozen=True)
+class SeedPerson:
+    key: str
+    display_name: str
+    title: str
+    role: RoleType
+    manager_key: str | None
+    is_superadmin: bool
+    # Deliberately inconsistent formatting: these are written the way a person
+    # would type them, and must all survive normalisation. 555-01xx numbers are
+    # reserved for fiction and can never reach anyone.
+    address: str
+
+
+PEOPLE: list[SeedPerson] = [
+    SeedPerson("khalid", "Khalid", "President", RoleType.PRESIDENT, None, True, "(612) 555-0101"),
+    SeedPerson("sarah", "Sarah", "VP External", RoleType.VP, "khalid", False, "+16125550102"),
+    SeedPerson("izra", "Izra", "Marketing Member", RoleType.MEMBER, "sarah", False, "612-555-0103"),
+    SeedPerson(
+        "marwa", "Marwa", "Marketing Member", RoleType.MEMBER, "sarah", False, "Marwa@Example.com"
+    ),
 ]
 
 
@@ -51,33 +69,47 @@ async def seed(session: AsyncSession) -> Organization:
     # top-down for that reason.
     memberships: dict[str, Membership] = {}
 
-    for key, display_name, title, role, manager_key, is_superadmin in PEOPLE:
-        user_id = stable_id("user", ORG_SLUG, key)
+    for person in PEOPLE:
+        user_id = stable_id("user", ORG_SLUG, person.key)
         user = await session.get(User, user_id)
         if user is None:
-            user = User(id=user_id, display_name=display_name)
+            user = User(id=user_id, display_name=person.display_name)
             session.add(user)
             await session.flush()
 
-        membership_id = stable_id("membership", ORG_SLUG, key)
+        membership_id = stable_id("membership", ORG_SLUG, person.key)
         membership = await session.get(Membership, membership_id)
         if membership is None:
             membership = Membership(
                 id=membership_id,
                 organization_id=organization.id,
                 user_id=user.id,
-                title=title,
-                role_type=role,
+                title=person.title,
+                role_type=person.role,
                 manager_membership_id=(
-                    memberships[manager_key].id if manager_key is not None else None
+                    memberships[person.manager_key].id if person.manager_key else None
                 ),
-                is_superadmin=is_superadmin,
+                is_superadmin=person.is_superadmin,
                 status=MembershipStatus.ACTIVE,
             )
             session.add(membership)
             await session.flush()
 
-        memberships[key] = membership
+        memberships[person.key] = membership
+
+        identity_id = stable_id("identity", ORG_SLUG, person.key)
+        if await session.get(MessagingIdentity, identity_id) is None:
+            # Development members are pre-verified by hand. Real ones verify
+            # themselves through the enrollment flow.
+            identity = await register_identity(
+                session,
+                user_id=user.id,
+                channel=MessagingChannel.IMESSAGE,
+                address=person.address,
+                verified=True,
+            )
+            identity.id = identity_id
+            await session.flush()
 
     return organization
 

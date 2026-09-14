@@ -15,8 +15,8 @@ Message → LLM interprets → Typed intent → Permission engine → Domain rul
 
 ## Status
 
-Milestone 1 — organizations, hierarchy queries, and the permission engine.
-No work items, messaging, or AI yet.
+Milestone 1 — organizations, hierarchy, permissions, and messaging identities.
+No work items, message transport, or AI yet.
 
 ## Requirements
 
@@ -85,9 +85,9 @@ uv run python -m app.seed
 ```
 
 Creates ColorStack UMN with Khalid (President, superadmin) → Sarah (VP) →
-Izra and Marwa. Identifiers are derived with `uuid5`, so the script is safe to
-re-run and `JENIE_DEFAULT_ORG_ID` survives a rebuilt database. Copy the printed
-value into `.env`.
+Izra and Marwa, each with a pre-verified iMessage address. Identifiers are
+derived with `uuid5`, so the script is safe to re-run and `JENIE_DEFAULT_ORG_ID`
+survives a rebuilt database. Copy the printed value into `.env`.
 
 `/health` returns 503 when the database is unreachable, so a process manager can
 tell "running" apart from "able to serve".
@@ -125,6 +125,7 @@ backend/
     database/     engine, session, ORM models
     domain/       enumerations and domain services
       organizations/  hierarchy traversal (OrgGraph)
+      identity/       address normalization and sender resolution
       permissions/    the authorization engine
     config.py     settings from the environment
     logging.py    structlog configuration
@@ -150,3 +151,7 @@ and `app/notifications/`.
 - Hierarchy traversals go through `OrgGraph`, never ad-hoc recursive SQL.
 - Authorization goes through `app/domain/permissions`, never a role check in a
   route handler. See [docs/permissions.md](docs/permissions.md).
+- A message's sender is established from a *verified* messaging identity, never
+  from anything the message says about who sent it.
+- Addresses are normalized once on the way in. `address_norm` is the only column
+  ever matched against; `address_raw` exists for debugging.
