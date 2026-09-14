@@ -1,0 +1,21 @@
+# Postgres for contributors who would rather not install it locally.
+# Port 5433 keeps it clear of a Homebrew postgres already on 5432.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: jenie
+      POSTGRES_PASSWORD: jenie
+      POSTGRES_DB: jenie_dev
+    ports:
+      - "5433:5432"
+    volumes:
+      - jenie-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jenie -d jenie_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  jenie-postgres:
