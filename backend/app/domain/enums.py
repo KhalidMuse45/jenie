@@ -26,3 +26,15 @@ class RoleType(StrEnum):
 class MembershipStatus(StrEnum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
+
+
+class MessagingChannel(StrEnum):
+    """Transports a person can reach Jenie through.
+
+    iMessage is the only one implemented. The column exists from the start
+    because the same phone number can be both an iMessage and an SMS address,
+    and they are different identities.
+    """
+
+    IMESSAGE = "IMESSAGE"
+    SMS = "SMS"
