@@ -70,7 +70,12 @@ class DelegationPlan(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         back_populates="plan",
         cascade="all, delete-orphan",
         order_by="DelegationPlanItem.sort_order",
-        lazy="selectin",
+        # Never lazy-load. Items are written as rows rather than appended to
+        # this collection, so an unloaded access under asyncio surfaces as
+        # MissingGreenlet -- an error that says nothing about the real mistake.
+        # Raising here names it instead. Read items with
+        # ``delegation.list_items()``.
+        lazy="raise_on_sql",
     )
 
     __table_args__ = (

@@ -12,6 +12,10 @@ TEST_DATABASE_URL = os.environ.get(
 )
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 
+# The administrative API is only mounted when a token is configured.
+ADMIN_TOKEN = "test-administrative-token"
+os.environ["ADMIN_API_TOKEN"] = ADMIN_TOKEN
+
 import pytest  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
 
@@ -68,3 +72,23 @@ async def client():
     transport = ASGITransport(app=create_app())
     async with AsyncClient(transport=transport, base_url="http://test") as http_client:
         yield http_client
+
+
+@pytest.fixture
+async def api(database):
+    """A client for the administrative API, already holding the token.
+
+    Depends on ``database`` because these requests open their own sessions and
+    need the schema to exist.
+    """
+    transport = ASGITransport(app=create_app())
+    async with AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"X-Jenie-Admin-Token": ADMIN_TOKEN},
+    ) as http_client:
+        yield http_client
+
+
+def acting_as(membership) -> dict[str, str]:
+    return {"X-Jenie-Actor": str(membership.id)}

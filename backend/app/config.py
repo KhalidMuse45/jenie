@@ -18,6 +18,11 @@ class Settings(BaseSettings):
 
     database_url: PostgresDsn
 
+    # Shared secret for the administrative HTTP API. When unset the admin routes
+    # are not mounted at all, so a deployment that never configures one has no
+    # administrative surface rather than an unprotected one.
+    admin_api_token: str | None = None
+
     @property
     def is_development(self) -> bool:
         return self.app_env == "development"

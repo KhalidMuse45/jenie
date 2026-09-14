@@ -19,8 +19,8 @@ Milestone 3 complete — the delegation engine works end to end. A plan can be
 written, sent, adjusted, approved or rejected; approval creates the work,
 records the decision, and queues the notifications in one transaction.
 
-No message transport and no AI yet: nothing is delivered, and nothing is
-interpreted. That is the next two milestones.
+The whole flow is drivable over HTTP. No message transport and no AI yet:
+nothing is delivered, and nothing is interpreted.
 
 ## Requirements
 
@@ -82,6 +82,56 @@ curl http://localhost:8000/health
 # {"data":{"status":"ok","database":"ok"},"error":null}
 ```
 
+### The administrative API
+
+Set a token to mount it:
+
+```bash
+ADMIN_API_TOKEN=local-dev-token uv run uvicorn app.main:app --reload
+```
+
+Without `ADMIN_API_TOKEN` the administrative routes are not mounted at all, so a
+deployment that never sets one has no administrative surface rather than an
+unprotected one. `/health` is always available.
+
+Every request carries two headers:
+
+```
+X-Jenie-Admin-Token:  the shared secret above
+X-Jenie-Actor:        the membership id the request acts as
+```
+
+The second is impersonation, and it is deliberate — this API exists to drive
+Jenie before iMessage does. **Anyone holding the token can act as anyone.** That
+is appropriate for an operator tool on a trusted network and wrong for anything
+public. What each actor may *do* is still decided by the permission engine.
+
+```
+GET    /organizations/{id}/members
+GET    /members/{id}/descendants
+
+POST   /work-items
+GET    /work-items/{id}
+GET    /work-items/{id}/tree
+POST   /work-items/{id}/start
+POST   /work-items/{id}/complete
+POST   /work-items/{id}/cancel
+
+GET    /delegation-plans                      plans awaiting you
+POST   /delegation-plans
+GET    /delegation-plans/{id}
+POST   /delegation-plans/{id}/items
+PATCH  /delegation-plans/{id}/items/{item_id}
+DELETE /delegation-plans/{id}/items/{item_id}
+POST   /delegation-plans/{id}/submit
+POST   /delegation-plans/{id}/approve
+POST   /delegation-plans/{id}/reject
+
+GET    /outbound-messages                     the notification queue
+```
+
+Interactive docs at `/docs`.
+
 ### Seed development data
 
 ```bash
@@ -125,7 +175,7 @@ Always read a generated migration before committing it. Autogenerate misses
 ```
 backend/
   app/
-    api/          HTTP routes and the response envelope
+    api/          HTTP routes, schemas, and error mapping
     database/     engine, session, ORM models
     domain/       enumerations and domain services
       organizations/  hierarchy traversal (OrgGraph)
@@ -174,3 +224,7 @@ drains the outbox.
   network calls made during it. A worker delivers them after the commit.
 - Approval is idempotent. Deciding twice records one decision and creates one
   set of tasks.
+- Domain services raise exceptions carrying sentences meant for people. The API
+  maps them to status codes in one place; no route repeats that mapping.
+- Work in another organization reads as missing, not forbidden. Confirming it
+  exists would leak the shape of someone else's organization.
