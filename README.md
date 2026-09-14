@@ -15,8 +15,12 @@ Message → LLM interprets → Typed intent → Permission engine → Domain rul
 
 ## Status
 
-Milestone 3 (in progress) — delegation plans can be written, edited, and sent
-for approval. Approval itself is next. No message transport or AI yet.
+Milestone 3 complete — the delegation engine works end to end. A plan can be
+written, sent, adjusted, approved or rejected; approval creates the work,
+records the decision, and queues the notifications in one transaction.
+
+No message transport and no AI yet: nothing is delivered, and nothing is
+interpreted. That is the next two milestones.
 
 ## Requirements
 
@@ -127,7 +131,8 @@ backend/
       organizations/  hierarchy traversal (OrgGraph)
       identity/       address normalization and sender resolution
       permissions/    the authorization engine
-      delegation/     plans: drafting, submission, state machine
+      delegation/     plans: drafting, submission, approval
+      notifications/  message templates and the outbox
       work/           the work tree, lifecycle, and history
     config.py     settings from the environment
     logging.py    structlog configuration
@@ -138,9 +143,9 @@ backend/
 docker-compose.yml
 ```
 
-Later milestones add the rest of `app/domain/` (approvals, audit),
-`app/application/` (commands and queries), `app/messaging/`, `app/ai/`, and
-`app/notifications/`.
+Later milestones add `app/application/` (commands and queries),
+`app/messaging/` (transports), `app/ai/` (interpretation), and the worker that
+drains the outbox.
 
 ## Conventions
 
@@ -165,3 +170,7 @@ Later milestones add the rest of `app/domain/` (approvals, audit),
   UUID cannot be typed into a text message.
 - A delegation plan is a proposal. Its items are not tasks, appear on nobody's
   list, and become real work only when the plan is approved.
+- Notifications are rows written inside the transaction that causes them, never
+  network calls made during it. A worker delivers them after the commit.
+- Approval is idempotent. Deciding twice records one decision and creates one
+  set of tasks.

@@ -10,10 +10,22 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import DelegationPlan, DelegationPlanItem, WorkItem
+from app.database.models import (
+    DelegationPlan,
+    DelegationPlanItem,
+    Membership,
+    User,
+    WorkItem,
+)
 from app.domain.codes import generate_plan_code
 from app.domain.delegation.states import EDITABLE_STATUSES
-from app.domain.enums import DelegationPlanStatus, WorkItemStatus, WorkItemType
+from app.domain.enums import (
+    DelegationPlanStatus,
+    OutboundMessageType,
+    WorkItemStatus,
+    WorkItemType,
+)
+from app.domain.notifications import enqueue, render_plan_submitted
 from app.domain.organizations.graph import OrgGraph
 
 _CODE_ATTEMPTS = 10
@@ -160,7 +172,40 @@ async def submit_plan(
     plan.submitted_at = now
     plan.version += 1
     await session.flush()
+
+    await _notify_approver(session, plan, now)
     return plan
+
+
+async def _notify_approver(session: AsyncSession, plan: DelegationPlan, now: datetime) -> None:
+    """Tell the approver a plan is waiting.
+
+    Queued in the same transaction as the submission, like every other
+    notification Jenie sends.
+    """
+    if plan.required_approver_membership_id == plan.created_by_membership_id:
+        return
+
+    scope = await session.get(WorkItem, plan.scope_work_item_id)
+    submitted_by = await session.scalar(
+        select(User.display_name)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.id == plan.created_by_membership_id)
+    )
+
+    await enqueue(
+        session,
+        organization_id=plan.organization_id,
+        recipient_membership_id=plan.required_approver_membership_id,
+        message_type=OutboundMessageType.PLAN_SUBMITTED,
+        body=render_plan_submitted(
+            plan_code=plan.short_code,
+            responsibility_title=scope.title,
+            submitted_by=submitted_by or "Someone",
+            task_count=len(await list_items(session, plan)),
+        ),
+        now=now,
+    )
 
 
 async def list_items(session: AsyncSession, plan: DelegationPlan) -> list[DelegationPlanItem]:
