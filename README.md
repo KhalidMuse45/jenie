@@ -15,7 +15,8 @@ Message → LLM interprets → Typed intent → Permission engine → Domain rul
 
 ## Status
 
-Milestone 0 — repository foundation. No domain models, messaging, or AI yet.
+Milestone 1 — organizations, users, memberships, and hierarchy queries.
+No work items, messaging, or AI yet.
 
 ## Requirements
 
@@ -77,6 +78,17 @@ curl http://localhost:8000/health
 # {"data":{"status":"ok","database":"ok"},"error":null}
 ```
 
+### Seed development data
+
+```bash
+uv run python -m app.seed
+```
+
+Creates ColorStack UMN with Khalid (President, superadmin) → Sarah (VP) →
+Izra and Marwa. Identifiers are derived with `uuid5`, so the script is safe to
+re-run and `JENIE_DEFAULT_ORG_ID` survives a rebuilt database. Copy the printed
+value into `.env`.
+
 `/health` returns 503 when the database is unreachable, so a process manager can
 tell "running" apart from "able to serve".
 
@@ -111,15 +123,18 @@ backend/
   app/
     api/          HTTP routes and the response envelope
     database/     engine, session, ORM models
+    domain/       enumerations and domain services
+      organizations/  hierarchy traversal (OrgGraph)
     config.py     settings from the environment
     logging.py    structlog configuration
     main.py       application factory
+    seed.py       development organization
   alembic/        migrations
   tests/
 docker-compose.yml
 ```
 
-Later milestones add `app/domain/` (organizations, permissions, work, delegation,
+Later milestones add the rest of `app/domain/` (permissions, work, delegation,
 approvals, audit), `app/application/` (commands and queries), `app/messaging/`,
 `app/ai/`, and `app/notifications/`.
 
@@ -129,3 +144,6 @@ approvals, audit), `app/application/` (commands and queries), `app/messaging/`,
 - UUID primary keys; sequential identifiers are never an authorization mechanism.
 - Every endpoint returns `{"data": ..., "error": ...}`.
 - `error.message` is a sentence a person can read — it is relayed to users verbatim.
+- Authority is evaluated against a membership, never a user. One person may hold
+  memberships in several organizations without carrying permissions between them.
+- Hierarchy traversals go through `OrgGraph`, never ad-hoc recursive SQL.
