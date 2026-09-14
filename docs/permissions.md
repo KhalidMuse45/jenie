@@ -42,16 +42,33 @@ Then the rule for that action is consulted. **An action with no rule is denied.*
 | Action | Allowed when |
 | --- | --- |
 | `VIEW_MEMBER_WORK` | the target is the actor, or beneath them |
+| `VIEW_WORK_ITEM` | the actor is responsible for the item, or above whoever is |
+| `EDIT_WORK_ITEM` | as above |
+| `CANCEL_WORK_ITEM` | as above |
+| `CREATE_WORK_ITEM` | the actor is responsible for the *parent*, or above whoever is |
+| `START_TASK` | the actor is the assignee |
+| `COMPLETE_TASK` | the actor is the assignee |
+| `DELEGATE_RESPONSIBILITY` | the work is the actor's *and* the recipient reports to them |
+| `CREATE_INITIATIVE` | superadmin only |
 | `VIEW_ORGANIZATION_WORK` | superadmin only |
 | `MANAGE_MEMBERS` | superadmin only |
 | `MANAGE_HIERARCHY` | superadmin only |
+
+Two of those are worth spelling out.
+
+**Starting and finishing are narrower than editing.** A manager may change or
+cancel a report's task, but saying it is *done* belongs to the assignee. A
+superadmin can still override, as they can anywhere.
+
+**Work with no owner follows whoever created it.** An initiative exists before
+anyone is responsible for it, and authority has to rest somewhere in the
+meantime.
 
 Every other action is currently denied for non-superadmins. They are not
 unimplemented — they are closed, and each opens when its resource exists:
 
 | Action group | Opens in |
 | --- | --- |
-| work items, task lifecycle | the work tree milestone |
 | delegation plans, approval | the delegation milestone |
 
 ## Adding a rule

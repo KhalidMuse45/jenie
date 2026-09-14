@@ -20,6 +20,44 @@ class MemberSubject:
     membership_id: uuid.UUID
 
 
+@dataclass(frozen=True, slots=True)
+class WorkSubject:
+    """A work item.
+
+    ``created_by_membership_id`` matters because ownership is optional: an
+    initiative can exist before anyone is responsible for it, and until then
+    authority follows whoever created it.
+    """
+
+    organization_id: uuid.UUID
+    work_item_id: uuid.UUID
+    owner_membership_id: uuid.UUID | None
+    created_by_membership_id: uuid.UUID
+
+    @property
+    def responsible_membership_id(self) -> uuid.UUID:
+        return self.owner_membership_id or self.created_by_membership_id
+
+
+@dataclass(frozen=True, slots=True)
+class DelegationSubject:
+    """Handing a responsibility to someone.
+
+    Two questions at once -- is this work yours to give, and is that person
+    yours to give it to -- so both parties travel together.
+    """
+
+    organization_id: uuid.UUID
+    work_item_id: uuid.UUID
+    owner_membership_id: uuid.UUID | None
+    created_by_membership_id: uuid.UUID
+    proposed_owner_membership_id: uuid.UUID
+
+    @property
+    def responsible_membership_id(self) -> uuid.UUID:
+        return self.owner_membership_id or self.created_by_membership_id
+
+
 #: Grows as resources land. Every subject must carry organization_id so the
 #: engine can refuse cross-organization access before consulting any rule.
-Subject = MemberSubject
+Subject = MemberSubject | WorkSubject | DelegationSubject

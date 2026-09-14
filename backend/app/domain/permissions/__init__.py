@@ -7,7 +7,12 @@ require(actor, Action.VIEW_MEMBER_WORK, subject_for(sarah))
 """
 
 from app.domain.permissions.actions import Action
-from app.domain.permissions.context import load_actor, subject_for
+from app.domain.permissions.context import (
+    load_actor,
+    subject_for,
+    subject_for_delegation,
+    subject_for_work_item,
+)
 from app.domain.permissions.engine import (
     Actor,
     Decision,
@@ -15,17 +20,26 @@ from app.domain.permissions.engine import (
     can,
     require,
 )
-from app.domain.permissions.subjects import MemberSubject, Subject
+from app.domain.permissions.subjects import (
+    DelegationSubject,
+    MemberSubject,
+    Subject,
+    WorkSubject,
+)
 
 __all__ = [
     "Action",
     "Actor",
     "Decision",
+    "DelegationSubject",
     "MemberSubject",
     "PermissionDenied",
     "Subject",
+    "WorkSubject",
     "can",
     "load_actor",
     "require",
     "subject_for",
+    "subject_for_delegation",
+    "subject_for_work_item",
 ]

@@ -38,3 +38,44 @@ class MessagingChannel(StrEnum):
 
     IMESSAGE = "IMESSAGE"
     SMS = "SMS"
+
+
+class WorkItemType(StrEnum):
+    """Levels of the work tree.
+
+    Strictly nested: an initiative holds responsibilities, a responsibility
+    holds tasks. Keeping tasks off the initiative means every leaf sits under a
+    responsibility, which is what makes progress reporting a simple count.
+    """
+
+    INITIATIVE = "INITIATIVE"
+    RESPONSIBILITY = "RESPONSIBILITY"
+    TASK = "TASK"
+
+
+class WorkItemStatus(StrEnum):
+    """Lifecycle of a work item.
+
+    BLOCKED is deliberately absent. Blockers are out of MVP scope; adding the
+    value later is a CHECK constraint change, which is why these are not native
+    PostgreSQL enums.
+    """
+
+    ACTIVE = "ACTIVE"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETE = "COMPLETE"
+    CANCELLED = "CANCELLED"
+
+
+class TaskEventType(StrEnum):
+    """Entries in a work item's immutable history.
+
+    Only values Jenie actually emits are listed. An event type nothing writes is
+    a lie about what the history can contain.
+    """
+
+    WORK_CREATED = "WORK_CREATED"
+    ASSIGNED = "ASSIGNED"
+    STARTED = "STARTED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
