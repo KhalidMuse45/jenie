@@ -49,6 +49,11 @@ Then the rule for that action is consulted. **An action with no rule is denied.*
 | `START_TASK` | the actor is the assignee |
 | `COMPLETE_TASK` | the actor is the assignee |
 | `DELEGATE_RESPONSIBILITY` | the work is the actor's *and* the recipient reports to them |
+| `CREATE_PLAN` | the actor is responsible for the responsibility being planned |
+| `EDIT_PLAN` | draft: the creator. Pending: the named approver. Decided: nobody |
+| `SUBMIT_PLAN` | the creator, while it is still a draft |
+| `APPROVE_PLAN` | the named approver, while it is pending |
+| `REJECT_PLAN` | the named approver, while it is pending |
 | `CREATE_INITIATIVE` | superadmin only |
 | `VIEW_ORGANIZATION_WORK` | superadmin only |
 | `MANAGE_MEMBERS` | superadmin only |
@@ -64,12 +69,13 @@ superadmin can still override, as they can anywhere.
 anyone is responsible for it, and authority has to rest somewhere in the
 meantime.
 
-Every other action is currently denied for non-superadmins. They are not
-unimplemented — they are closed, and each opens when its resource exists:
+**A plan changes hands when it is submitted.** The creator owns a draft. Once it
+has been sent, the approver owns it — they can adjust a due date and then
+approve, and the creator can no longer edit underneath them. Once decided, it is
+closed to everyone: an approved plan is the record of what was agreed to.
 
-| Action group | Opens in |
-| --- | --- |
-| delegation plans, approval | the delegation milestone |
+`BLOCK_TASK` and `REASSIGN_TASK` remain closed — both are out of MVP scope, and
+a rule for something nothing calls would be a guess rather than a policy.
 
 ## Adding a rule
 

@@ -15,8 +15,8 @@ Message → LLM interprets → Typed intent → Permission engine → Domain rul
 
 ## Status
 
-Milestone 2 — the work tree: initiatives, responsibilities, tasks, and their
-history. No delegation plans, message transport, or AI yet.
+Milestone 3 (in progress) — delegation plans can be written, edited, and sent
+for approval. Approval itself is next. No message transport or AI yet.
 
 ## Requirements
 
@@ -127,6 +127,7 @@ backend/
       organizations/  hierarchy traversal (OrgGraph)
       identity/       address normalization and sender resolution
       permissions/    the authorization engine
+      delegation/     plans: drafting, submission, state machine
       work/           the work tree, lifecycle, and history
     config.py     settings from the environment
     logging.py    structlog configuration
@@ -137,7 +138,7 @@ backend/
 docker-compose.yml
 ```
 
-Later milestones add the rest of `app/domain/` (delegation, approvals, audit),
+Later milestones add the rest of `app/domain/` (approvals, audit),
 `app/application/` (commands and queries), `app/messaging/`, `app/ai/`, and
 `app/notifications/`.
 
@@ -160,5 +161,7 @@ Later milestones add the rest of `app/domain/` (delegation, approvals, audit),
   leaf sits under a responsibility, which is what makes progress a simple count.
 - Every state change appends a `task_event` in the same transaction. History
   cannot diverge from state.
-- Work items carry a short code (`TASK-K4M2`) because a UUID cannot be typed
-  into a text message.
+- Work items and plans carry a short code (`TASK-K4M2`, `PLAN-7QX1`) because a
+  UUID cannot be typed into a text message.
+- A delegation plan is a proposal. Its items are not tasks, appear on nobody's
+  list, and become real work only when the plan is approved.

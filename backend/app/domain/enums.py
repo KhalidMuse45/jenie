@@ -79,3 +79,19 @@ class TaskEventType(StrEnum):
     STARTED = "STARTED"
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
+
+
+class DelegationPlanStatus(StrEnum):
+    """Lifecycle of a delegation plan.
+
+    A plan is a proposal. Nothing it contains exists as real work until it is
+    approved, at which point the plan itself becomes immutable history.
+
+    WITHDRAWN and SUPERSEDED from the spec are deferred: nothing emits them yet,
+    and an unreachable state is a lie about what the column can hold.
+    """
+
+    DRAFT = "DRAFT"
+    PENDING_APPROVAL = "PENDING_APPROVAL"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"

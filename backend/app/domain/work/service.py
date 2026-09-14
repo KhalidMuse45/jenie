@@ -12,8 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.models import WorkItem
+from app.domain.codes import generate_work_item_code
 from app.domain.enums import TaskEventType, WorkItemStatus, WorkItemType
-from app.domain.work.codes import generate_code
 from app.domain.work.events import record_event
 
 #: What each type may hang from. ``None`` means the type is a root.
@@ -122,7 +122,7 @@ async def _allocate_code(
     case from hitting it.
     """
     for _ in range(_CODE_ATTEMPTS):
-        candidate = generate_code(item_type)
+        candidate = generate_work_item_code(item_type)
         taken = await session.scalar(
             select(WorkItem.id).where(
                 WorkItem.organization_id == organization_id,
