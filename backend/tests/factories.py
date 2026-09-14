@@ -2,8 +2,9 @@
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database.models import Membership, Organization, User
-from app.domain.enums import MembershipStatus, RoleType
+from app.database.models import Membership, Organization, User, WorkItem
+from app.domain.enums import MembershipStatus, RoleType, WorkItemType
+from app.domain.work import create_work_item
 
 
 async def make_organization(session: AsyncSession, name: str = "Test Org") -> Organization:
@@ -75,3 +76,41 @@ async def make_tree(session: AsyncSession) -> dict[str, Membership]:
         "member_b": member_b,
         "member_c": member_c,
     }
+
+
+async def make_initiative(
+    session: AsyncSession,
+    organization: Organization,
+    creator: Membership,
+    *,
+    title: str = "Google AI Workshop",
+    owner: Membership | None = None,
+) -> WorkItem:
+    return await create_work_item(
+        session,
+        organization_id=organization.id,
+        item_type=WorkItemType.INITIATIVE,
+        title=title,
+        created_by_membership_id=creator.id,
+        owner_membership_id=owner.id if owner else None,
+    )
+
+
+async def make_child(
+    session: AsyncSession,
+    parent: WorkItem,
+    creator: Membership,
+    *,
+    item_type: WorkItemType,
+    title: str,
+    owner: Membership | None = None,
+) -> WorkItem:
+    return await create_work_item(
+        session,
+        organization_id=parent.organization_id,
+        item_type=item_type,
+        title=title,
+        created_by_membership_id=creator.id,
+        parent=parent,
+        owner_membership_id=owner.id if owner else None,
+    )

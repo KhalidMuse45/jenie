@@ -19,7 +19,12 @@ from dataclasses import dataclass
 
 from app.domain.enums import MembershipStatus, RoleType
 from app.domain.permissions.actions import Action
-from app.domain.permissions.subjects import MemberSubject, Subject
+from app.domain.permissions.subjects import (
+    DelegationSubject,
+    MemberSubject,
+    Subject,
+    WorkSubject,
+)
 
 
 class PermissionDenied(Exception):
@@ -111,8 +116,62 @@ def _superadmin_only(what: str) -> Rule:
     return rule
 
 
+def _view_work_item(actor: Actor, subject: Subject | None) -> Decision:
+    work = _expect(subject, WorkSubject)
+    if actor.covers(work.responsible_membership_id):
+        return _allow("The work is within your part of the organization.")
+    return _deny("You can only see work that belongs to you or to someone who reports to you.")
+
+
+def _change_work_item(actor: Actor, subject: Subject | None) -> Decision:
+    work = _expect(subject, WorkSubject)
+    if actor.covers(work.responsible_membership_id):
+        return _allow("The work is within your part of the organization.")
+    return _deny("You can only change work that belongs to you or to someone who reports to you.")
+
+
+def _add_beneath(actor: Actor, subject: Subject | None) -> Decision:
+    """The subject is the *parent*, not the item being created."""
+    parent = _expect(subject, WorkSubject)
+    if actor.covers(parent.responsible_membership_id):
+        return _allow("You are responsible for the work this sits under.")
+    return _deny("You can only add work underneath something you are responsible for.")
+
+
+def _work_on_own_task(actor: Actor, subject: Subject | None) -> Decision:
+    """Starting and finishing are statements about your own work.
+
+    Deliberately narrower than editing: a manager may change or cancel a report's
+    task, but reporting it finished is the assignee's to say.
+    """
+    work = _expect(subject, WorkSubject)
+    if work.owner_membership_id == actor.membership_id:
+        return _allow("It is your task.")
+    return _deny("Only the person a task is assigned to can start or finish it.")
+
+
+def _delegate_responsibility(actor: Actor, subject: Subject | None) -> Decision:
+    handover = _expect(subject, DelegationSubject)
+
+    if not actor.covers(handover.responsible_membership_id):
+        return _deny("You can only delegate work you are responsible for.")
+
+    if not actor.manages(handover.proposed_owner_membership_id):
+        return _deny("You can only delegate to someone who reports to you.")
+
+    return _allow("The work and the person are both within your part of the organization.")
+
+
 _RULES: dict[Action, Rule] = {
     Action.VIEW_MEMBER_WORK: _view_member_work,
+    Action.VIEW_WORK_ITEM: _view_work_item,
+    Action.EDIT_WORK_ITEM: _change_work_item,
+    Action.CANCEL_WORK_ITEM: _change_work_item,
+    Action.CREATE_WORK_ITEM: _add_beneath,
+    Action.START_TASK: _work_on_own_task,
+    Action.COMPLETE_TASK: _work_on_own_task,
+    Action.DELEGATE_RESPONSIBILITY: _delegate_responsibility,
+    Action.CREATE_INITIATIVE: _superadmin_only("start a new initiative"),
     Action.VIEW_ORGANIZATION_WORK: _superadmin_only("see the whole organization's work"),
     Action.MANAGE_MEMBERS: _superadmin_only("add or change members"),
     Action.MANAGE_HIERARCHY: _superadmin_only("change who reports to whom"),
