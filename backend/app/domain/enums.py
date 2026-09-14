@@ -95,3 +95,39 @@ class DelegationPlanStatus(StrEnum):
     PENDING_APPROVAL = "PENDING_APPROVAL"
     APPROVED = "APPROVED"
     REJECTED = "REJECTED"
+
+
+class ApprovalDecision(StrEnum):
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+
+
+class AuditAction(StrEnum):
+    """Organization-level actions worth reconstructing later.
+
+    Distinct from task events, which follow a single work item. An audit entry
+    answers "who decided this, and what did it do".
+    """
+
+    APPROVE_PLAN = "APPROVE_PLAN"
+    REJECT_PLAN = "REJECT_PLAN"
+
+
+class OutboundMessageType(StrEnum):
+    ASSIGNMENT = "ASSIGNMENT"
+    PLAN_SUBMITTED = "PLAN_SUBMITTED"
+    PLAN_APPROVED = "PLAN_APPROVED"
+    PLAN_REJECTED = "PLAN_REJECTED"
+
+
+class OutboundMessageStatus(StrEnum):
+    """Where a queued message is in its journey.
+
+    PROCESSING exists so a worker can claim a row before attempting delivery;
+    without it a crash mid-send is indistinguishable from a message never tried.
+    """
+
+    PENDING = "PENDING"
+    PROCESSING = "PROCESSING"
+    SENT = "SENT"
+    FAILED = "FAILED"
