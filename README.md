@@ -15,7 +15,7 @@ Message → LLM interprets → Typed intent → Permission engine → Domain rul
 
 ## Status
 
-Milestone 1 — organizations, users, memberships, and hierarchy queries.
+Milestone 1 — organizations, hierarchy queries, and the permission engine.
 No work items, messaging, or AI yet.
 
 ## Requirements
@@ -125,6 +125,7 @@ backend/
     database/     engine, session, ORM models
     domain/       enumerations and domain services
       organizations/  hierarchy traversal (OrgGraph)
+      permissions/    the authorization engine
     config.py     settings from the environment
     logging.py    structlog configuration
     main.py       application factory
@@ -134,9 +135,9 @@ backend/
 docker-compose.yml
 ```
 
-Later milestones add the rest of `app/domain/` (permissions, work, delegation,
-approvals, audit), `app/application/` (commands and queries), `app/messaging/`,
-`app/ai/`, and `app/notifications/`.
+Later milestones add the rest of `app/domain/` (work, delegation, approvals,
+audit), `app/application/` (commands and queries), `app/messaging/`, `app/ai/`,
+and `app/notifications/`.
 
 ## Conventions
 
@@ -147,3 +148,5 @@ approvals, audit), `app/application/` (commands and queries), `app/messaging/`,
 - Authority is evaluated against a membership, never a user. One person may hold
   memberships in several organizations without carrying permissions between them.
 - Hierarchy traversals go through `OrgGraph`, never ad-hoc recursive SQL.
+- Authorization goes through `app/domain/permissions`, never a role check in a
+  route handler. See [docs/permissions.md](docs/permissions.md).
